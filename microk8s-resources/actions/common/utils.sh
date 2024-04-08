@@ -1392,6 +1392,12 @@ use_snap_env() {
   mkdir -p "${XDG_RUNTIME_DIR}"
 }
 
+# Regenerate a special ld.so.cache for use by nvidia-container-runtime/libnvidia-container
+rebuild_nvidia_ld_cache() {
+  mkdir -p $SNAP_DATA/etc
+  /usr/sbin/ldconfig -f $SNAP/etc/nvidia-ld.so.conf -C $SNAP_DATA/etc/nvidia-ld.so.cache -X
+}
+
 # check if this file is run with arguments
 if [[ "$0" == "${BASH_SOURCE}" ]] &&
    [[ ! -z "$1" ]]

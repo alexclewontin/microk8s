@@ -29,6 +29,11 @@ mkdir -p ${SNAP_DATA}/args
 cp -r --preserve=mode ${SNAP}/default-args/* ${SNAP_DATA}/args
 mv ${SNAP_DATA}/args/certs.d/localhost__32000 ${SNAP_DATA}/args/certs.d/localhost:32000
 
+rebuild_nvidia_ld_cache
+
+mkdir -p ${SNAP_DATA}/etc/kubernetes/node-feature-discovery/source.d
+mkdir -p ${SNAP_DATA}/etc/kubernetes/node-feature-discovery/features.d
+
 SNAP_DATA_CURRENT=`echo "${SNAP_DATA}" | sed -e "s,${SNAP_REVISION},current,"`
 
 # Try to symlink /var/lib/kubelet so that most kubelet device plugins work out of the box.

@@ -57,6 +57,7 @@ fi
 sed 's@${SNAP}@'"${SNAP}"'@g;s@${SNAP_DATA}@'"${SNAP_DATA}"'@g;s@${SNAPSHOTTER}@'"${SNAPSHOTTER}"'@g;s@${RUNTIME}@'"${RUNTIME}"'@g' $SNAP_DATA/args/containerd-template.toml > $SNAP_DATA/args/containerd.toml
 sed -i 's@${RUNTIME_TYPE}@'"${RUNTIME_TYPE}"'@g' $SNAP_DATA/args/containerd.toml
 
+sed 's@${SNAP}@'"${SNAP}"'@g;s@${SNAP_DATA}@'"${SNAP_DATA}"'@g' $SNAP_DATA/args/nvidia-container-runtime-template.toml > $SNAP_DATA/args/nvidia-container-runtime.toml
 
 run_flanneld="$(is_service_expected_to_start flanneld)"
 if [ "${run_flanneld}" == "1" ]
@@ -94,5 +95,8 @@ wait_for_default_route
 
 # Set the path to the Cilium socket correctly for CNI
 export CILIUM_SOCK="${SNAP_DATA}/var/run/cilium/cilium.sock"
+
+mount --make-rshared /
+mount --make-rshared /run
 
 exec "$SNAP/bin/$app" "${args[@]}"

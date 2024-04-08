@@ -4,5 +4,15 @@
 
 use_snap_env
 
+# Ensure that older installs which never copied the file into $SNAP_DATA pick it up
+if [ ! -f "$SNAP_DATA/args/nvidia-container-runtime-template.toml" ]; then
+    cp "$SNAP/default-args/nvidia-container-runtime-template.toml" "$SNAP_DATA/args/nvidia-container-runtime-template.toml"
+fi
+
+rebuild_nvidia_ld_cache
+
+mkdir -p $SNAP_DATA/etc/kubernetes/node-feature-discovery/source.d
+mkdir -p $SNAP_DATA/etc/kubernetes/node-feature-discovery/features.d
+
 # Run post-refresh hooks
 $SNAP/usr/bin/python3 $SNAP/scripts/run-lifecycle-hooks.py post-refresh || true

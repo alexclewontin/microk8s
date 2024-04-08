@@ -59,6 +59,13 @@ oom_score = 0
       [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia-container-runtime.options]
         BinaryName = "nvidia-container-runtime"
 
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+      # runtime_type is the runtime type to use in containerd e.g. io.containerd.runtime.v1.linux
+      runtime_type = "${RUNTIME_TYPE}"
+
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+        BinaryName = "${SNAP}/usr/bin/nvidia-container-runtime"
+
    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
       runtime_type = "io.containerd.kata.v2"
       [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]

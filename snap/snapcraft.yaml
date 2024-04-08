@@ -22,7 +22,7 @@ parts:
   build-deps:
     plugin: nil
     build-snaps:
-      - go/1.21/stable
+      - &go go/1.21/stable
     build-packages:
       - autoconf
       - automake
@@ -294,6 +294,95 @@ parts:
       - -usr/share/man
       - -usr/share/python-wheels
 
+  nvidia-container-toolkit:
+    plugin: nil
+    build-snaps:
+      - *go
+    build-packages:
+      - make
+    source: https://github.com/NVIDIA/nvidia-container-toolkit.git
+    source-tag: &nvidia-container-toolkit-version v1.13.5
+    source-depth: 1
+    build-environment:
+      - "CGO_ENABLED": "1"
+      - "GOBIN": "$SNAPCRAFT_PART_INSTALL/bin"
+    override-pull: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      snapcraftctl pull
+    override-build: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      go mod download
+      go install -p $SNAPCRAFT_PARALLEL_BUILD_COUNT -ldflags "-s -w -linkmode=external" ./...
+      mkdir -p $SNAPCRAFT_PART_INSTALL/etc
+      echo "/snap/microk8s/current/gpu/usr/lib/$SNAPCRAFT_ARCH_TRIPLET" > $SNAPCRAFT_PART_INSTALL/etc/nvidia-ld.so.conf
+      echo "/snap/microk8s/current/usr/lib/$SNAPCRAFT_ARCH_TRIPLET" >> $SNAPCRAFT_PART_INSTALL/etc/nvidia-ld.so.conf
+    override-stage: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      snapcraftctl stage
+    override-prime: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      snapcraftctl prime
+    organize:
+      bin: usr/bin/
+    stage:
+      - usr/bin/nvidia-container-*
+      - usr/bin/nvidia-ctk
+      - etc/nvidia-ld.so.conf
+
+  libnvidia-container:
+    plugin: make
+    build-packages:
+      - bmake
+      - build-essential
+      - bzip2
+      - curl
+      - libcap-dev
+      - libelf-dev
+      - libseccomp-dev
+      - lsb-release
+      - m4
+      - pkg-config
+    build-snaps:
+      - *go
+    source: https://github.com/NVIDIA/libnvidia-container.git
+    source-tag: *nvidia-container-toolkit-version
+    source-depth: 1
+    override-pull: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      snapcraftctl pull
+    override-build: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      snapcraftctl build
+    override-stage: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      snapcraftctl stage
+    override-prime: |
+      [ "${SNAPCRAFT_TARGET_ARCH}" != "amd64" ] && \
+        [ "${SNAPCRAFT_TARGET_ARCH}" != "arm64" ] && \
+        exit 0
+      snapcraftctl prime
+    # Paths taken from upstream packaging #
+    organize:
+      usr/local/bin/nvidia-container-cli: usr/bin/nvidia-container-cli
+      usr/local/lib: usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/
+    prime:
+      - usr/bin/nvidia-container-cli*
+      - usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/libnvidia-container*.so*
+
   bom:
     after:
       - cluster-agent
@@ -308,6 +397,8 @@ parts:
       - microk8s-addons
       - python-runtime
       - runc
+      - nvidia-container-toolkit
+      - libnvidia-container
     plugin: nil
     source: .
     build-packages:
@@ -372,6 +463,7 @@ apps:
       - cifs-mount
       - fuse-support
       - kernel-crypto-api
+      - nvidia-support
   daemon-kubelite:
     command: run-kubelite-with-args
     daemon: simple
@@ -631,6 +723,29 @@ passthrough:
     /opt/cni/bin:
       bind: $SNAP_DATA/opt/cni/bin
 
+    /etc/kubernetes/node-feature-discovery:
+      bind: $SNAP_DATA/etc/kubernetes/node-feature-discovery
+    /etc/cdi:
+      bind: $SNAP_DATA/etc/cdi
+
+    /usr/bin/nvidia-smi:
+      symlink: $SNAP/gpu/bin/nvidia-smi
+    /usr/bin/nvidia-ctk:
+      bind: $SNAP/usr/bin/nvidia-ctk
+    # these libs needed by nvidia-container-cli
+    /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-container.so.1:
+      symlink: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-container.so.1
+    /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-container-go.so.1:
+      symlink: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-container-go.so.1
+    # these libs needed for driver validation, before toolkit libs get autodetected
+    /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-ml.so.1:
+      symlink: $SNAP/gpu/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-ml.so.1
+    /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-ml.so:
+      symlink: $SNAP/gpu/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/libnvidia-ml.so
+
+    /etc/nvidia-container-runtime/config.toml:
+      symlink: $SNAP_DATA/args/nvidia-container-runtime.toml
+
 plugs:
   home-read-all:
     interface: home
@@ -665,6 +780,17 @@ plugs:
   ceph-conf:
     interface: content
     target: $SNAP/microceph
+  opengl:
+  # For nvidia userspace libs support #
+  graphics-core22:
+    interface: content
+    target: $SNAP/gpu
+    # Currently, this is the only relevant provider, but cannot be default as not supported on all archs #
+    #default-provider: nvidia-core22
+  nvidia-support:
+    interface: system-files
+    write:
+      - /run/nvidia
 
 slots:
   microk8s:
