@@ -383,6 +383,16 @@ parts:
       - usr/bin/nvidia-container-cli*
       - usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/libnvidia-container*.so*
 
+  # TODO: delete this once https://github.com/snapcore/nvidia-core22/pull/15 lands
+  nvidia-runtime-hack:
+    plugin: nil
+    stage-snaps: [ nvidia-core22 ]
+    organize:
+      '*': gpu/
+    override-prime: |
+      snapcraftctl prime
+      ldconfig -N -r $SNAPCRAFT_PRIME/gpu
+
   bom:
     after:
       - cluster-agent
@@ -782,9 +792,10 @@ plugs:
     target: $SNAP/microceph
   opengl:
   # For nvidia userspace libs support #
-  graphics-core22:
-    interface: content
-    target: $SNAP/gpu
+  # TODO: reinstate this plug once https://github.com/snapcore/nvidia-core22/pull/15 lands
+  # graphics-core22:
+  #   interface: content
+  #   target: $SNAP/gpu
     # Currently, this is the only relevant provider, but cannot be default as not supported on all archs #
     #default-provider: nvidia-core22
   nvidia-support:
